@@ -89,7 +89,7 @@ static const uint32_t diff1targ = 0x0000ffff;
 
 
 /* Used externally as confirmation of correct OCL code */
-int talkcoin_test(unsigned char *pdata, const unsigned char *ptarget, uint32_t nonce)
+int nist5_test(unsigned char *pdata, const unsigned char *ptarget, uint32_t nonce)
 {
 	uint32_t tmp_hash7, Htarg = le32toh(((const uint32_t *)ptarget)[7]);
 	uint32_t data[20], ohash[8];
@@ -112,7 +112,7 @@ int talkcoin_test(unsigned char *pdata, const unsigned char *ptarget, uint32_t n
 	return 1;
 }
 
-void talkcoin_regenhash(struct work *work)
+void nist5_regenhash(struct work *work)
 {
         uint32_t data[20];
         char *scratchbuf;
@@ -124,7 +124,7 @@ void talkcoin_regenhash(struct work *work)
         talkhash(ohash, data);
 }
 
-bool scanhash_talkcoin(struct thr_info *thr, const unsigned char __maybe_unused *pmidstate,
+bool scanhash_nist5(struct thr_info *thr, const unsigned char __maybe_unused *pmidstate,
 		     unsigned char *pdata, unsigned char __maybe_unused *phash1,
 		     unsigned char __maybe_unused *phash, const unsigned char *ptarget,
 		     uint32_t max_nonce, uint32_t *last_nonce, uint32_t n)

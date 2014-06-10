@@ -54,6 +54,7 @@ char *curly = ":D";
 #include "adl.h"
 #include "driver-opencl.h"
 #include "bench_block.h"
+#include "nist5.h"
 
 #if defined(unix) || defined(__APPLE__)
 	#include <errno.h>
@@ -148,6 +149,7 @@ int opt_tcp_keepalive = 30;
 #else
 int opt_tcp_keepalive;
 #endif
+double opt_diff_mult = 1.0;
 
 char *opt_kernel_path;
 char *sgminer_path;
@@ -297,10 +299,6 @@ struct schedtime {
 struct schedtime schedstart;
 struct schedtime schedstop;
 bool sched_paused;
-
-#define DM_SELECT(x, y, z) (y)
-
-enum diff_calc_mode dm_mode = DM_TALKCOIN;
 
 static bool time_before(struct tm *tm1, struct tm *tm2)
 {
@@ -1053,6 +1051,18 @@ static char *set_null(const char __maybe_unused *arg)
 	return NULL;
 }
 
+char *set_difficulty_multiplier(char *arg)
+{
+	char **endptr = NULL;
+	if (!(arg && arg[0]))
+		return "Invalid parameters for set difficulty multiplier";
+	opt_diff_mult = strtod(arg, endptr);
+	if (opt_diff_mult == 0 || endptr == arg)
+		return "Invalid value passed to set difficulty multiplier";
+
+	return NULL;
+}
+
 /* These options are available from config file or commandline */
 static struct opt_table opt_config_table[] = {
 	OPT_WITH_ARG("--api-allow",
@@ -1169,7 +1179,7 @@ static struct opt_table opt_config_table[] = {
 #endif
 	OPT_WITH_ARG("--lookup-gap",
 		     set_lookup_gap, NULL, NULL,
-		     "Set GPU lookup gap for scrypt mining, comma separated"),
+		     "Set GPU lookup gap for nist5 mining, comma separated"),
 	OPT_WITH_ARG("--intensity|-I",
 		     set_intensity, NULL, NULL,
 		     "Intensity of GPU scanning (d or " MIN_INTENSITY_STR
@@ -1276,7 +1286,7 @@ static struct opt_table opt_config_table[] = {
 		     "Set a time of day in HH:MM to stop mining (will quit without a start time)"),
 	OPT_WITH_ARG("--shaders",
 		     set_shaders, NULL, NULL,
-		     "GPU shaders per card for tuning scrypt, comma separated"),
+		     "GPU shaders per card for tuning nist5, comma separated"),
 	OPT_WITH_ARG("--sharelog",
 		     set_sharelog, NULL, NULL,
 		     "Append share log to file"),
@@ -1326,7 +1336,7 @@ static struct opt_table opt_config_table[] = {
 	),
 	OPT_WITH_ARG("--thread-concurrency",
 		     set_thread_concurrency, NULL, NULL,
-		     "Set GPU thread concurrency for scrypt mining, comma separated"),
+		     "Set GPU thread concurrency for nist5 mining, comma separated"),
 	OPT_WITH_ARG("--url|-o",
 		     set_url, NULL, NULL,
 		     "URL for bitcoin JSON-RPC server"),
@@ -1352,6 +1362,9 @@ static struct opt_table opt_config_table[] = {
 			"Display extra work time debug information"),
 	OPT_WITH_ARG("--pools",
 			opt_set_bool, NULL, NULL, opt_hidden),
+	OPT_WITH_ARG("--difficulty-multiplier",
+			set_difficulty_multiplier, NULL, NULL,
+			"Difficulty multiplier for jobs received from stratum pools"),
 	OPT_ENDTABLE
 };
 
@@ -2960,7 +2973,7 @@ static void calc_diff(struct work *work, double known)
 	else {
 		double d64, dcut64;
 
-		d64 = (double) DM_SELECT(1, 256, 65536) * truediffone;
+		d64 = (double) truediffone;
 
 		dcut64 = le256todouble(work->target);
 		if (unlikely(!dcut64))
@@ -3577,7 +3590,7 @@ static double share_diff(const struct work *work)
 	double d64, s64;
 	double ret;
 
-	d64 = (double) DM_SELECT(1, 256, 65536) * truediffone;
+	d64 = (double) truediffone;
 	s64 = le256todouble(work->hash);
 	if (unlikely(!s64))
 		s64 = 0;
@@ -3900,7 +3913,7 @@ static void set_blockdiff(const struct work *work)
 	uint8_t pow = work->data[72];
 	int powdiff = (8 * (0x1d - 3)) - (8 * (pow - 3));
 	uint32_t diff32 = be32toh(*((uint32_t *)(work->data + 72))) & 0x00FFFFFF;
-	double numerator = DM_SELECT(0xFFFFULL, 0xFFFFFFULL, 0xFFFFFFFFULL) << powdiff;
+	double numerator = 0xFFFFULL << powdiff;
 	double ddiff = numerator / (double)diff32;
 
 	if (unlikely(current_diff != ddiff)) {
@@ -4210,8 +4223,8 @@ void write_config(FILE *fcfg)
 			switch (gpus[i].kernel) {
 				case KL_NONE: // Shouldn't happen
 					break;
-				case KL_TALKCOIN:
-					fprintf(fcfg, TALKCOIN_KERNNAME);
+				case KL_NIST5:
+					fprintf(fcfg, NIST5_KERNNAME);
 					break;
 			}
 		}
@@ -5801,7 +5814,7 @@ void set_target(unsigned char *dest_target, double diff)
 	}
 
 	// FIXME: is target set right?
-	d64 = (double) DM_SELECT(1, 256, 65536) * truediffone;
+	d64 = (double) truediffone;
 	d64 /= diff;
 
 	dcut64 = d64 / bits192;
@@ -6017,11 +6030,11 @@ static void rebuild_nonce(struct work *work, uint32_t nonce)
 	*work_nonce = htole32(nonce);
 
 	switch (gpus[0].kernel) {
-		case KL_TALKCOIN:
-			talkcoin_regenhash(work);
+		case KL_NIST5:
+			nist5_regenhash(work);
 			break;
 		default:
-			talkcoin_regenhash(work);
+			nist5_regenhash(work);
 			break;
 	}
 }
@@ -6044,7 +6057,7 @@ bool test_nonce_diff(struct work *work, uint32_t nonce, double diff)
 	uint64_t *hash64 = (uint64_t *)(work->hash + 24), diff64;
 
 	rebuild_nonce(work, nonce);
-	diff64 = DM_SELECT(0x00000000ffff0000ULL, 0x000000ffff000000ULL, 0x0000ffff00000000ULL);
+	diff64 = 0x00000000ffff0000ULL;
 	diff64 /= diff;
 
 	return (le64toh(*hash64) <= diff64);
@@ -6053,11 +6066,11 @@ bool test_nonce_diff(struct work *work, uint32_t nonce, double diff)
 static void update_work_stats(struct thr_info *thr, struct work *work)
 {
 	double test_diff = current_diff;
-	test_diff *= DM_SELECT(1, 256, 65536);
+	test_diff *= 1;
 
 	work->share_diff = share_diff(work);
 
-	test_diff *= DM_SELECT(1, 256, 65536);
+	test_diff *= 1;
 
 	if (unlikely(work->share_diff >= test_diff)) {
 		work->block = true;
@@ -7848,7 +7861,7 @@ int main(int argc, char *argv[])
 		struct pool *pool;
 
 		// FIXME: executes always (leftover from SHA256d days)
-		quit(1, "Cannot use benchmark mode with scrypt");
+		quit(1, "Cannot use benchmark mode with nist5");
 		pool = add_pool();
 		pool->rpc_url = malloc(255);
 		strcpy(pool->rpc_url, "Benchmark");

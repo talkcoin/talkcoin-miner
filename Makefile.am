@@ -41,7 +41,7 @@ sgminer_SOURCES += driver-opencl.c driver-opencl.h
 sgminer_SOURCES += ocl.c ocl.h
 sgminer_SOURCES += findnonce.c findnonce.h
 sgminer_SOURCES += adl.c adl.h adl_functions.h
-sgminer_SOURCES += talkcoin.c talkcoin.h
+sgminer_SOURCES += nist5.c nist5.h
 sgminer_SOURCES += kernel/*.cl
 
 bin_SCRIPTS	= $(top_srcdir)/kernel/*.cl

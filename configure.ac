@@ -340,7 +340,8 @@ fi
 
 AC_DEFINE_UNQUOTED([SGMINER_PREFIX], ["$prefix/bin"], [Path to sgminer install])
 
-AC_DEFINE_UNQUOTED([TALKCOIN_KERNNAME], ["talkcoin"], [Filename for TalkCoin optimised kernel])
+AC_DEFINE_UNQUOTED([NIST5_KERNNAME], ["nist5"], [Filename for TalkCoin (NIST5) optimised kernel])
+AC_DEFINE_UNQUOTED([TALKCOIN_KERNNAME], ["talkcoin"], [Filename for TalkCoin (NIST5) optimised kernel])
 
 AC_SUBST(OPENCL_LIBS)
 AC_SUBST(OPENCL_FLAGS)

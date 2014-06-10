@@ -29,8 +29,8 @@
  * @author   phm <phm@inbox.com>
  */
 
-#ifndef TALKCOIN_CL
-#define TALKCOIN_CL
+#ifndef NIST5_CL
+#define NIST5_CL
 
 #if __ENDIAN_LITTLE__
 #define SPH_LITTLE_ENDIAN 1
@@ -310,4 +310,4 @@ __kernel void search(__global unsigned char* block, volatile __global uint* outp
         output[output[0xFF]++] = SWAP4(gid);
 }
 
-#endif // TALKCOIN_CL
+#endif // NIST5_CL

@@ -48,7 +48,6 @@ extern bool opt_loginput;
 extern char *opt_kernel_path;
 extern int gpur_thr_id;
 extern bool opt_noadl;
-extern enum diff_calc_mode dm_mode;
 
 extern void *miner_thread(void *userdata);
 extern int dev_from_id(int thr_id);
@@ -197,8 +196,8 @@ char *set_thread_concurrency(char *arg)
 
 static enum cl_kernels select_kernel(char *arg)
 {
-	if (!strcmp(arg, TALKCOIN_KERNNAME))
-		return KL_TALKCOIN;
+	if (!strcmp(arg, NIST5_KERNNAME) || !strcmp(arg, TALKCOIN_KERNNAME))
+		return KL_NIST5;
 
 	return KL_NONE;
 }
@@ -213,13 +212,10 @@ char *set_kernel(char *arg)
 	if (nextptr == NULL)
 		return "Invalid parameters for set kernel";
 	kern = select_kernel(nextptr);
+
 	if (kern == KL_NONE)
 		return "Invalid parameter to set_kernel";
 	gpus[device++].kernel = kern;
-	if(kern >= KL_TALKCOIN)
-		dm_mode = DM_TALKCOIN;
-	else
-		dm_mode = DM_TALKCOIN;
 
 	while ((nextptr = strtok(NULL, ",")) != NULL) {
 		kern = select_kernel(nextptr);
@@ -1009,28 +1005,6 @@ static _clState *clStates[MAX_GPUDEVICES];
 #define CL_SET_ARG(var) status |= clSetKernelArg(*kernel, num++, sizeof(var), (void *)&var)
 #define CL_SET_VARG(args, var) status |= clSetKernelArg(*kernel, num++, args * sizeof(uint), (void *)var)
 
-static cl_int queue_scrypt_kernel(_clState *clState, dev_blk_ctx *blk, __maybe_unused cl_uint threads)
-{
-	unsigned char *midstate = blk->work->midstate;
-	cl_kernel *kernel = &clState->kernel;
-	unsigned int num = 0;
-	cl_uint le_target;
-	cl_int status = 0;
-
-	le_target = *(cl_uint *)(blk->work->device_target + 28);
-	memcpy(clState->cldata, blk->work->data, 80);
-	status = clEnqueueWriteBuffer(clState->commandQueue, clState->CLbuffer0, true, 0, 80, clState->cldata, 0, NULL,NULL);
-
-	CL_SET_ARG(clState->CLbuffer0);
-	CL_SET_ARG(clState->outputBuffer);
-	CL_SET_ARG(clState->padbuffer8);
-	CL_SET_VARG(4, &midstate[0]);
-	CL_SET_VARG(4, &midstate[16]);
-	CL_SET_ARG(le_target);
-
-	return status;
-}
-
 static cl_int queue_sph_kernel(_clState *clState, dev_blk_ctx *blk, __maybe_unused cl_uint threads)
 {
 	unsigned char *midstate = blk->work->midstate;
@@ -1322,8 +1296,8 @@ static bool opencl_thread_prepare(struct thr_info *thr)
 	if (!cgpu->kname)
 	{
 		switch (clStates[i]->chosen_kernel) {
-			case KL_TALKCOIN:
-				cgpu->kname = TALKCOIN_KERNNAME;
+			case KL_NIST5:
+				cgpu->kname = NIST5_KERNNAME;
 				break;
 			default:
 				break;
@@ -1353,7 +1327,7 @@ static bool opencl_thread_init(struct thr_info *thr)
 	}
 
 	switch (clState->chosen_kernel) {
-	case KL_TALKCOIN:
+	case KL_NIST5:
 		thrdata->queue_kernel_parameters = &queue_sph_kernel;
 		break;
 	default:

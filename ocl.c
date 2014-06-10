@@ -407,8 +407,8 @@ _clState *initCl(unsigned int gpu, char *name, size_t nameSize)
 	char numbuf[16];
 
 	if (cgpu->kernel == KL_NONE) {
-		applog(LOG_INFO, "Selecting kernel talkcoin");
-		clState->chosen_kernel = KL_TALKCOIN;
+		applog(LOG_INFO, "Selecting kernel nist5");
+		clState->chosen_kernel = KL_NIST5;
 		cgpu->kernel = clState->chosen_kernel;
 	} else {
 		clState->chosen_kernel = cgpu->kernel;
@@ -426,10 +426,10 @@ _clState *initCl(unsigned int gpu, char *name, size_t nameSize)
 	cgpu->vwidth = 1;
 
 	switch (clState->chosen_kernel) {
-		case KL_TALKCOIN:
-			applog(LOG_WARNING, "Kernel talkcoin is experimental.");
-			strcpy(filename, TALKCOIN_KERNNAME".cl");
-			strcpy(binaryfilename, TALKCOIN_KERNNAME);
+		case KL_NIST5:
+			applog(LOG_WARNING, "Kernel talkcoin (nist5) is experimental.");
+			strcpy(filename, NIST5_KERNNAME".cl");
+			strcpy(binaryfilename, NIST5_KERNNAME);
 			break;
 		case KL_NONE: /* Shouldn't happen */
 			break;
@@ -763,9 +763,9 @@ built:
 	if (bufsize > cgpu->max_alloc) {
 		applog(LOG_WARNING, "Maximum buffer memory device %d supports says %lu",
 			   gpu, (long unsigned int)(cgpu->max_alloc));
-		applog(LOG_WARNING, "Your scrypt settings come to %d", (int)bufsize);
+		applog(LOG_WARNING, "Your nist5 settings come to %d", (int)bufsize);
 	}
-	applog(LOG_DEBUG, "Creating scrypt buffer sized %d", (int)bufsize);
+	applog(LOG_DEBUG, "Creating nist5 buffer sized %d", (int)bufsize);
 	clState->padbufsize = bufsize;
 
 	/* This buffer is weird and might work to some degree even if
